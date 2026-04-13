@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enkripsi & Dekripsi — Block Cipher XOR</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f0efe9;
+    color: #222;
+    min-height: 100vh;
+  }
+
+  header {
+    background: #3266ad;
+    color: white;
+    padding: 1.2rem 2rem;
+    text-align: center;
+  }
+  header h1 { font-size: 1.3rem; font-weight: 600; }
+  header p  { font-size: 0.85rem; opacity: 0.8; margin-top: 2px; }
+
+  .container {
+    max-width: 780px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e0dfd8;
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+  }
+
+  .card label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #555;
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .key-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .key-row input {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    font-size: 0.95rem;
+    font-family: monospace;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .key-row input:focus { border-color: #3266ad; }
+  .key-row button {
+    padding: 9px 14px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    background: #fafaf8;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: #555;
+    white-space: nowrap;
+  }
+  .key-row button:hover { background: #f0efe9; }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+  }
+  .tab-btn {
+    padding: 8px 22px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    background: #fafaf8;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #555;
+    transition: all 0.15s;
+  }
+  .tab-btn.active {
+    background: #3266ad;
+    border-color: #3266ad;
+    color: white;
+    font-weight: 600;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .section-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .btn {
+    padding: 7px 14px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    background: #fafaf8;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: #444;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.12s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #f0efe9; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.primary {
+    background: #3266ad;
+    border-color: #3266ad;
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 10px 20px;
+    width: 100%;
+    justify-content: center;
+  }
+  .btn.primary:hover { background: #2255a0; }
+
+  textarea {
+    width: 100%;
+    min-height: 140px;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    font-family: 'Consolas', monospace;
+    font-size: 0.9rem;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+    line-height: 1.5;
+  }
+  textarea:focus { border-color: #3266ad; }
+  textarea.output-area {
+    background: #fafaf8;
+    color: #333;
+  }
+
+  .file-info {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: 6px;
+    min-height: 18px;
+  }
+  .file-info.success { color: #1D9E75; }
+  .file-info.error   { color: #c0392b; }
+
+  .img-preview {
+    margin-top: 8px;
+    max-height: 100px;
+    border-radius: 6px;
+    display: none;
+    border: 1px solid #e0dfd8;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #222;
+    color: #fff;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    opacity: 0;
+    transition: all 0.25s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 500px) {
+    .section-header { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔐 Enkripsi &amp; Dekripsi</h1>
+  <p>Block Cipher XOR</p>
+</header>
+
+<div class="container">
+
+  <!-- Key -->
+  <div class="card">
+    <label>Key (Kunci Rahasia)</label>
+    <div class="key-row">
+      <input type="password" id="key-input" placeholder="Masukkan key..." autocomplete="off">
+      <button onclick="toggleKey()">👁 Tampilkan</button>
+    </div>
+  </div>
+
+  <!-- Mode -->
+  <div class="card">
+    <label>Mode</label>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="setMode('enkripsi', this)">🔒 Enkripsi</button>
+      <button class="tab-btn"        onclick="setMode('dekripsi', this)">🔓 Dekripsi</button>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="card">
+    <div class="section-header">
+      <span class="section-title" id="input-label">Plaintext</span>
+      <div class="btn-group">
+        <button class="btn" onclick="uploadTxt()">📂 Buka .txt</button>
+        <button class="btn" id="img-btn" onclick="uploadImage()">🖼 Buka Gambar</button>
+        <button class="btn" onclick="clearInput()">✕ Hapus</button>
+      </div>
+    </div>
+    <textarea id="input-text" placeholder="Ketik teks di sini, atau upload file..."></textarea>
+    <div class="file-info" id="file-info"></div>
+    <img id="img-preview" class="img-preview" alt="preview">
+    <input type="file" id="file-txt"   accept=".txt"                          style="display:none" onchange="handleTxt(this)">
+    <input type="file" id="file-image" accept=".png,.jpg,.jpeg,.bmp,.tiff,.webp" style="display:none" onchange="handleImage(this)">
+  </div>
+
+  <!-- Action -->
+  <button class="btn primary" id="action-btn" onclick="runAction()">🔒 Enkripsi Sekarang</button>
+
+  <!-- Output -->
+  <div class="card">
+    <div class="section-header">
+      <span class="section-title" id="output-label">Ciphertext (Hasil)</span>
+      <div class="btn-group">
+        <button class="btn" onclick="copyOutput()">📋 Salin</button>
+        <button class="btn" onclick="downloadOutput()">💾 Simpan .txt</button>
+      </div>
+    </div>
+    <textarea id="output-text" class="output-area" readonly placeholder="Hasil akan muncul di sini..."></textarea>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let currentMode = 'enkripsi';
+
+  function setMode(mode, btn) {
+    currentMode = mode;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (mode === 'enkripsi') {
+      document.getElementById('input-label').textContent  = 'Plaintext';
+      document.getElementById('output-label').textContent = 'Ciphertext (Hasil)';
+      document.getElementById('action-btn').textContent   = '🔒 Enkripsi Sekarang';
+      document.getElementById('img-btn').disabled = false;
+    } else {
+      document.getElementById('input-label').textContent  = 'Ciphertext (hex)';
+      document.getElementById('output-label').textContent = 'Plaintext (Hasil)';
+      document.getElementById('action-btn').textContent   = '🔓 Dekripsi Sekarang';
+      document.getElementById('img-btn').disabled = true;
+    }
+    clearInput();
+    document.getElementById('output-text').value = '';
+  }
+
+  function toggleKey() {
+    const inp = document.getElementById('key-input');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  function clearInput() {
+    document.getElementById('input-text').value = '';
+    document.getElementById('file-info').textContent = '';
+    document.getElementById('file-info').className = 'file-info';
+    document.getElementById('img-preview').style.display = 'none';
+    document.getElementById('file-txt').value   = '';
+    document.getElementById('file-image').value = '';
+  }
+
+  function uploadTxt()   { document.getElementById('file-txt').click(); }
+  function uploadImage() { document.getElementById('file-image').click(); }
+
+  async function handleTxt(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    setFileInfo('⏳ Membaca file...', '');
+    try {
+      const res = await fetch('/api/upload-txt', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.error) { setFileInfo('✗ ' + data.error, 'error'); return; }
+      document.getElementById('input-text').value = data.text;
+      setFileInfo(`📄 ${data.filename} — ${data.text.length} karakter`, 'success');
+    } catch { setFileInfo('✗ Gagal membaca file.', 'error'); }
+  }
+
+  async function handleImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    setFileInfo('⏳ Memproses OCR, harap tunggu...', '');
+    try {
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.error) { setFileInfo('✗ ' + data.error, 'error'); return; }
+      document.getElementById('input-text').value = data.text;
+      setFileInfo(`🖼 ${data.filename} — ${data.text.length} karakter terdeteksi`, 'success');
+      // Tampilkan preview
+      const preview = document.getElementById('img-preview');
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+    } catch { setFileInfo('✗ Gagal memproses gambar.', 'error'); }
+  }
+
+  function setFileInfo(msg, cls) {
+    const el = document.getElementById('file-info');
+    el.textContent = msg;
+    el.className = 'file-info ' + cls;
+  }
+
+  async function runAction() {
+    const key  = document.getElementById('key-input').value.trim();
+    const text = document.getElementById('input-text').value.trim();
+    if (!key)  { showToast('⚠ Masukkan key terlebih dahulu!'); return; }
+    if (!text) { showToast('⚠ Input teks kosong!'); return; }
+
+    const endpoint = currentMode === 'enkripsi' ? '/api/encrypt' : '/api/decrypt';
+    document.getElementById('action-btn').textContent = '⏳ Memproses...';
+    document.getElementById('action-btn').disabled = true;
+
+    try {
+      const res  = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, key })
+      });
+      const data = await res.json();
+      if (data.error) {
+        showToast('✗ ' + data.error);
+      } else {
+        document.getElementById('output-text').value = data.result;
+        showToast('✓ Berhasil!');
+      }
+    } catch {
+      showToast('✗ Terjadi kesalahan jaringan.');
+    } finally {
+      const label = currentMode === 'enkripsi' ? '🔒 Enkripsi Sekarang' : '🔓 Dekripsi Sekarang';
+      document.getElementById('action-btn').textContent = label;
+      document.getElementById('action-btn').disabled = false;
+    }
+  }
+
+  function copyOutput() {
+    const text = document.getElementById('output-text').value;
+    if (!text) { showToast('Tidak ada output untuk disalin.'); return; }
+    navigator.clipboard.writeText(text).then(() => showToast('✓ Disalin ke clipboard!'));
+  }
+
+  async function downloadOutput() {
+    const content = document.getElementById('output-text').value;
+    if (!content) { showToast('Tidak ada output untuk disimpan.'); return; }
+    const filename = currentMode === 'enkripsi' ? 'ciphertext.txt' : 'plaintext.txt';
+    const res = await fetch('/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, filename })
+    });
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+</script>
+</body>
+</html>
