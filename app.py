@@ -55,7 +55,7 @@ def decrypt(ciphertext: str, key: str) -> str:
             plaintext += chr(block[j] ^ ord(key[j % len(key)]))
     return plaintext.strip()
 
-
+pytesseract.pytesseract.tesseract_cmd = "/run/current-system/sw/bin/tesseract"
 def ocr_from_image(file_bytes: bytes) -> str:
     img = Image.open(io.BytesIO(file_bytes))
     img = img.convert("L")
