@@ -3,203 +3,333 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Enkripsi & Dekripsi — Block Cipher XOR</title>
+<title>CipherLock — Enkripsi & Dekripsi</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,700;1,500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background: #f0efe9;
-    color: #222;
-    min-height: 100vh;
+  :root {
+    --pink-soft:   #fce7f3;
+    --pink-light:  #fbcfe8;
+    --pink-mid:    #f472b6;
+    --pink-main:   #ec4899;
+    --pink-deep:   #be185d;
+    --pink-darker: #9d174d;
+    --rose:        #fda4af;
+    --cream:       #fff7f9;
+    --white:       #ffffff;
+    --text-dark:   #2d1b2e;
+    --text-mid:    #6b3a5e;
+    --text-soft:   #a87197;
+    --border:      #f9a8d4;
+    --shadow:      rgba(236, 72, 153, 0.12);
+    --shadow-deep: rgba(190, 24, 93, 0.18);
   }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text-dark);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before, body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::before {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, #f9a8d4, #fbcfe8);
+    top: -200px; right: -150px;
+    animation: blob1 12s ease-in-out infinite alternate;
+  }
+  body::after {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, #fce7f3, #fda4af);
+    bottom: -150px; left: -100px;
+    animation: blob2 15s ease-in-out infinite alternate;
+  }
+  @keyframes blob1 { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(-40px,60px) scale(1.1)} }
+  @keyframes blob2 { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(60px,-40px) scale(1.08)} }
 
   header {
-    background: #3266ad;
-    color: white;
-    padding: 1.2rem 2rem;
+    position: relative;
+    z-index: 10;
     text-align: center;
+    padding: 3rem 2rem 2rem;
   }
-  header h1 { font-size: 1.3rem; font-weight: 600; }
-  header p  { font-size: 0.85rem; opacity: 0.8; margin-top: 2px; }
+  .header-badge {
+    display: inline-block;
+    background: var(--pink-soft);
+    color: var(--pink-deep);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 99px;
+    border: 1px solid var(--pink-light);
+    margin-bottom: 1rem;
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.8rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+  }
+  header h1 span { font-style: italic; color: var(--pink-main); }
+  header p { font-size: 0.92rem; color: var(--text-soft); font-weight: 300; }
 
   .container {
-    max-width: 780px;
-    margin: 2rem auto;
-    padding: 0 1rem;
+    position: relative;
+    z-index: 10;
+    max-width: 720px;
+    margin: 0 auto 4rem;
+    padding: 0 1.25rem;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.1rem;
   }
 
   .card {
-    background: #fff;
-    border: 1px solid #e0dfd8;
-    border-radius: 10px;
-    padding: 1.2rem 1.4rem;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(249,168,212,0.4);
+    border-radius: 20px;
+    padding: 1.4rem 1.6rem;
+    box-shadow: 0 4px 24px var(--shadow);
+    transition: box-shadow 0.2s;
   }
+  .card:hover { box-shadow: 0 8px 32px var(--shadow-deep); }
 
-  .card label {
-    font-size: 0.82rem;
+  .card-label {
+    font-size: 0.72rem;
     font-weight: 600;
-    color: #555;
-    display: block;
-    margin-bottom: 6px;
+    color: var(--text-soft);
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .key-row {
+    margin-bottom: 10px;
     display: flex;
-    gap: 8px;
     align-items: center;
-  }
-  .key-row input {
-    flex: 1;
-    padding: 9px 12px;
-    border: 1px solid #ccc;
-    border-radius: 7px;
-    font-size: 0.95rem;
-    font-family: monospace;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .key-row input:focus { border-color: #3266ad; }
-  .key-row button {
-    padding: 9px 14px;
-    border: 1px solid #ccc;
-    border-radius: 7px;
-    background: #fafaf8;
-    cursor: pointer;
-    font-size: 0.82rem;
-    color: #555;
-    white-space: nowrap;
-  }
-  .key-row button:hover { background: #f0efe9; }
-
-  .tabs {
-    display: flex;
     gap: 6px;
   }
-  .tab-btn {
-    padding: 8px 22px;
-    border: 1px solid #ccc;
-    border-radius: 7px;
-    background: #fafaf8;
+  .card-label::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--pink-main);
+  }
+
+  .key-row { display: flex; gap: 8px; align-items: center; }
+  .key-row input {
+    flex: 1;
+    padding: 11px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--white);
+    color: var(--text-dark);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .key-row input:focus {
+    border-color: var(--pink-main);
+    box-shadow: 0 0 0 3px rgba(236,72,153,0.12);
+  }
+  .key-row input::placeholder { color: #d4a0be; }
+  .toggle-btn {
+    padding: 11px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    background: var(--pink-soft);
+    color: var(--pink-deep);
     cursor: pointer;
-    font-size: 0.9rem;
-    color: #555;
+    font-size: 0.82rem;
+    font-weight: 500;
+    white-space: nowrap;
     transition: all 0.15s;
   }
+  .toggle-btn:hover { background: var(--pink-light); border-color: var(--pink-mid); }
+
+  .tabs { display: flex; gap: 8px; }
+  .tab-btn {
+    flex: 1;
+    padding: 10px 0;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    background: var(--white);
+    color: var(--text-soft);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .tab-btn:hover { background: var(--pink-soft); border-color: var(--pink-mid); color: var(--pink-deep); }
   .tab-btn.active {
-    background: #3266ad;
-    border-color: #3266ad;
+    background: linear-gradient(135deg, var(--pink-main), var(--pink-deep));
+    border-color: transparent;
     color: white;
     font-weight: 600;
+    box-shadow: 0 4px 16px rgba(236,72,153,0.35);
   }
 
   .section-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     flex-wrap: wrap;
-    gap: 6px;
-  }
-  .section-title {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    gap: 8px;
   }
   .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
 
   .btn {
-    padding: 7px 14px;
-    border: 1px solid #ccc;
-    border-radius: 7px;
-    background: #fafaf8;
+    padding: 7px 13px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--white);
     cursor: pointer;
-    font-size: 0.82rem;
-    color: #444;
+    font-size: 0.8rem;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    color: var(--text-mid);
     display: flex;
     align-items: center;
     gap: 5px;
-    transition: background 0.12s;
+    transition: all 0.15s;
     white-space: nowrap;
   }
-  .btn:hover { background: #f0efe9; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn.primary {
-    background: #3266ad;
-    border-color: #3266ad;
-    color: white;
-    font-weight: 600;
-    font-size: 0.95rem;
-    padding: 10px 20px;
+  .btn:hover { background: var(--pink-soft); border-color: var(--pink-mid); color: var(--pink-deep); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-action {
     width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--pink-main) 0%, var(--pink-deep) 100%);
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 8px;
+    box-shadow: 0 6px 24px rgba(236,72,153,0.4);
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
   }
-  .btn.primary:hover { background: #2255a0; }
+  .btn-action::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn-action:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(236,72,153,0.5); }
+  .btn-action:hover::after { opacity: 1; }
+  .btn-action:active { transform: translateY(0); }
+  .btn-action:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
   textarea {
     width: 100%;
-    min-height: 140px;
-    padding: 10px 12px;
-    border: 1px solid #ccc;
-    border-radius: 7px;
-    font-family: 'Consolas', monospace;
-    font-size: 0.9rem;
+    min-height: 130px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.88rem;
     resize: vertical;
     outline: none;
-    transition: border-color 0.15s;
-    line-height: 1.5;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    line-height: 1.6;
+    background: var(--white);
+    color: var(--text-dark);
   }
-  textarea:focus { border-color: #3266ad; }
-  textarea.output-area {
-    background: #fafaf8;
-    color: #333;
+  textarea:focus {
+    border-color: var(--pink-main);
+    box-shadow: 0 0 0 3px rgba(236,72,153,0.1);
+  }
+  textarea::placeholder { color: #d4a0be; }
+  textarea.output-area { background: var(--pink-soft); color: var(--text-dark); }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 0.2rem 0 0.8rem;
   }
 
   .file-info {
-    font-size: 0.8rem;
-    color: #888;
-    margin-top: 6px;
-    min-height: 18px;
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    margin-top: 8px;
+    min-height: 16px;
   }
-  .file-info.success { color: #1D9E75; }
-  .file-info.error   { color: #c0392b; }
+  .file-info.success { color: var(--pink-deep); font-weight: 500; }
+  .file-info.error   { color: #dc2626; }
 
   .img-preview {
-    margin-top: 8px;
-    max-height: 100px;
-    border-radius: 6px;
+    margin-top: 10px;
+    max-height: 90px;
+    border-radius: 10px;
     display: none;
-    border: 1px solid #e0dfd8;
+    border: 1.5px solid var(--border);
+    box-shadow: 0 2px 12px var(--shadow);
   }
 
   .toast {
     position: fixed;
-    bottom: 1.5rem;
+    bottom: 2rem;
     left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: #222;
-    color: #fff;
-    padding: 10px 22px;
-    border-radius: 8px;
+    transform: translateX(-50%) translateY(16px);
+    background: linear-gradient(135deg, var(--pink-deep), var(--pink-darker));
+    color: white;
+    padding: 11px 24px;
+    border-radius: 12px;
     font-size: 0.88rem;
+    font-weight: 500;
     opacity: 0;
-    transition: all 0.25s;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: none;
     z-index: 999;
+    box-shadow: 0 8px 24px rgba(190,24,93,0.35);
+    white-space: nowrap;
   }
-  .toast.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 0 0 2.5rem;
+    font-size: 0.78rem;
+    color: var(--text-soft);
   }
+  footer span { color: var(--pink-main); }
 
   @media (max-width: 500px) {
+    header h1 { font-size: 2rem; }
     .section-header { flex-direction: column; align-items: flex-start; }
   }
 </style>
@@ -207,64 +337,65 @@
 <body>
 
 <header>
-  <h1>🔐 Enkripsi &amp; Dekripsi</h1>
-  <p>Block Cipher XOR</p>
+  <div class="header-badge">✦ Block Cipher XOR ✦</div>
+  <h1>Cipher<span>Lock</span></h1>
+  <p>Enkripsi & dekripsi teks dengan kunci rahasiamu</p>
 </header>
 
 <div class="container">
 
-  <!-- Key -->
   <div class="card">
-    <label>Key (Kunci Rahasia)</label>
+    <div class="card-label">Kunci Rahasia</div>
     <div class="key-row">
-      <input type="password" id="key-input" placeholder="Masukkan key..." autocomplete="off">
-      <button onclick="toggleKey()">👁 Tampilkan</button>
+      <input type="password" id="key-input" placeholder="Masukkan key rahasia kamu..." autocomplete="off">
+      <button class="toggle-btn" onclick="toggleKey()">👁 Lihat</button>
     </div>
   </div>
 
-  <!-- Mode -->
   <div class="card">
-    <label>Mode</label>
+    <div class="card-label">Mode</div>
     <div class="tabs">
       <button class="tab-btn active" onclick="setMode('enkripsi', this)">🔒 Enkripsi</button>
       <button class="tab-btn"        onclick="setMode('dekripsi', this)">🔓 Dekripsi</button>
     </div>
   </div>
 
-  <!-- Input -->
   <div class="card">
     <div class="section-header">
-      <span class="section-title" id="input-label">Plaintext</span>
+      <div class="card-label" style="margin-bottom:0" id="input-label">Plaintext</div>
       <div class="btn-group">
         <button class="btn" onclick="uploadTxt()">📂 Buka .txt</button>
-        <button class="btn" id="img-btn" onclick="uploadImage()">🖼 Buka Gambar</button>
+        <button class="btn" id="img-btn" onclick="uploadImage()">🖼 Gambar</button>
         <button class="btn" onclick="clearInput()">✕ Hapus</button>
       </div>
     </div>
+    <div class="divider"></div>
     <textarea id="input-text" placeholder="Ketik teks di sini, atau upload file..."></textarea>
     <div class="file-info" id="file-info"></div>
     <img id="img-preview" class="img-preview" alt="preview">
-    <input type="file" id="file-txt"   accept=".txt"                          style="display:none" onchange="handleTxt(this)">
+    <input type="file" id="file-txt"   accept=".txt" style="display:none" onchange="handleTxt(this)">
     <input type="file" id="file-image" accept=".png,.jpg,.jpeg,.bmp,.tiff,.webp" style="display:none" onchange="handleImage(this)">
   </div>
 
-  <!-- Action -->
-  <button class="btn primary" id="action-btn" onclick="runAction()">🔒 Enkripsi Sekarang</button>
+  <button class="btn-action" id="action-btn" onclick="runAction()">
+    <span id="action-icon">🔒</span><span id="action-label">Enkripsi Sekarang</span>
+  </button>
 
-  <!-- Output -->
   <div class="card">
     <div class="section-header">
-      <span class="section-title" id="output-label">Ciphertext (Hasil)</span>
+      <div class="card-label" style="margin-bottom:0" id="output-label">Ciphertext (Hasil)</div>
       <div class="btn-group">
         <button class="btn" onclick="copyOutput()">📋 Salin</button>
-        <button class="btn" onclick="downloadOutput()">💾 Simpan .txt</button>
+        <button class="btn" onclick="downloadOutput()">💾 Simpan</button>
       </div>
     </div>
-    <textarea id="output-text" class="output-area" readonly placeholder="Hasil akan muncul di sini..."></textarea>
+    <div class="divider"></div>
+    <textarea id="output-text" class="output-area" readonly placeholder="Hasil enkripsi/dekripsi akan muncul di sini ✨"></textarea>
   </div>
 
 </div>
 
+<footer>dibuat dengan <span>♥</span> menggunakan Python & Flask</footer>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -274,17 +405,12 @@
     currentMode = mode;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    if (mode === 'enkripsi') {
-      document.getElementById('input-label').textContent  = 'Plaintext';
-      document.getElementById('output-label').textContent = 'Ciphertext (Hasil)';
-      document.getElementById('action-btn').textContent   = '🔒 Enkripsi Sekarang';
-      document.getElementById('img-btn').disabled = false;
-    } else {
-      document.getElementById('input-label').textContent  = 'Ciphertext (hex)';
-      document.getElementById('output-label').textContent = 'Plaintext (Hasil)';
-      document.getElementById('action-btn').textContent   = '🔓 Dekripsi Sekarang';
-      document.getElementById('img-btn').disabled = true;
-    }
+    const isEnkripsi = mode === 'enkripsi';
+    document.getElementById('input-label').textContent  = isEnkripsi ? 'Plaintext' : 'Ciphertext (hex)';
+    document.getElementById('output-label').textContent = isEnkripsi ? 'Ciphertext (Hasil)' : 'Plaintext (Hasil)';
+    document.getElementById('action-label').textContent = isEnkripsi ? 'Enkripsi Sekarang' : 'Dekripsi Sekarang';
+    document.getElementById('action-icon').textContent  = isEnkripsi ? '🔒' : '🔓';
+    document.getElementById('img-btn').disabled = !isEnkripsi;
     clearInput();
     document.getElementById('output-text').value = '';
   }
@@ -299,7 +425,7 @@
     document.getElementById('file-info').textContent = '';
     document.getElementById('file-info').className = 'file-info';
     document.getElementById('img-preview').style.display = 'none';
-    document.getElementById('file-txt').value   = '';
+    document.getElementById('file-txt').value = '';
     document.getElementById('file-image').value = '';
   }
 
@@ -307,33 +433,28 @@
   function uploadImage() { document.getElementById('file-image').click(); }
 
   async function handleTxt(input) {
-    const file = input.files[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
+    const file = input.files[0]; if (!file) return;
+    const formData = new FormData(); formData.append('file', file);
     setFileInfo('⏳ Membaca file...', '');
     try {
       const res = await fetch('/api/upload-txt', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.error) { setFileInfo('✗ ' + data.error, 'error'); return; }
       document.getElementById('input-text').value = data.text;
-      setFileInfo(`📄 ${data.filename} — ${data.text.length} karakter`, 'success');
+      setFileInfo('📄 ' + data.filename + ' — ' + data.text.length + ' karakter', 'success');
     } catch { setFileInfo('✗ Gagal membaca file.', 'error'); }
   }
 
   async function handleImage(input) {
-    const file = input.files[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
+    const file = input.files[0]; if (!file) return;
+    const formData = new FormData(); formData.append('file', file);
     setFileInfo('⏳ Memproses OCR, harap tunggu...', '');
     try {
       const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.error) { setFileInfo('✗ ' + data.error, 'error'); return; }
       document.getElementById('input-text').value = data.text;
-      setFileInfo(`🖼 ${data.filename} — ${data.text.length} karakter terdeteksi`, 'success');
-      // Tampilkan preview
+      setFileInfo('🖼 ' + data.filename + ' — ' + data.text.length + ' karakter terdeteksi', 'success');
       const preview = document.getElementById('img-preview');
       preview.src = URL.createObjectURL(file);
       preview.style.display = 'block';
@@ -343,7 +464,7 @@
   function setFileInfo(msg, cls) {
     const el = document.getElementById('file-info');
     el.textContent = msg;
-    el.className = 'file-info ' + cls;
+    el.className = 'file-info ' + (cls || '');
   }
 
   async function runAction() {
@@ -351,30 +472,20 @@
     const text = document.getElementById('input-text').value.trim();
     if (!key)  { showToast('⚠ Masukkan key terlebih dahulu!'); return; }
     if (!text) { showToast('⚠ Input teks kosong!'); return; }
-
     const endpoint = currentMode === 'enkripsi' ? '/api/encrypt' : '/api/decrypt';
-    document.getElementById('action-btn').textContent = '⏳ Memproses...';
-    document.getElementById('action-btn').disabled = true;
-
+    const btn = document.getElementById('action-btn');
+    document.getElementById('action-label').textContent = 'Memproses...';
+    btn.disabled = true;
     try {
-      const res  = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, key })
-      });
+      const res  = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, key }) });
       const data = await res.json();
-      if (data.error) {
-        showToast('✗ ' + data.error);
-      } else {
-        document.getElementById('output-text').value = data.result;
-        showToast('✓ Berhasil!');
-      }
-    } catch {
-      showToast('✗ Terjadi kesalahan jaringan.');
-    } finally {
-      const label = currentMode === 'enkripsi' ? '🔒 Enkripsi Sekarang' : '🔓 Dekripsi Sekarang';
-      document.getElementById('action-btn').textContent = label;
-      document.getElementById('action-btn').disabled = false;
+      if (data.error) { showToast('✗ ' + data.error); }
+      else { document.getElementById('output-text').value = data.result; showToast('✨ Berhasil!'); }
+    } catch { showToast('✗ Terjadi kesalahan jaringan.'); }
+    finally {
+      const isEnkripsi = currentMode === 'enkripsi';
+      document.getElementById('action-label').textContent = isEnkripsi ? 'Enkripsi Sekarang' : 'Dekripsi Sekarang';
+      btn.disabled = false;
     }
   }
 
@@ -388,11 +499,7 @@
     const content = document.getElementById('output-text').value;
     if (!content) { showToast('Tidak ada output untuk disimpan.'); return; }
     const filename = currentMode === 'enkripsi' ? 'ciphertext.txt' : 'plaintext.txt';
-    const res = await fetch('/api/download', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, filename })
-    });
+    const res = await fetch('/api/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, filename }) });
     const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
