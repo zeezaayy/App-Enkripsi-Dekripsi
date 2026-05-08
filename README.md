@@ -2,6 +2,9 @@
 Aplikasi enkripsi dan dekripsi teks berbasis GUI menggunakan metode **Block Cipher XOR**.
 Mendukung input dari teks langsung, file `.txt`, maupun gambar (via OCR).
 
+Link Website:
+https://enkripsi-dekripsi.up.railway.app/
+
 ---
 
 ## Fitur
